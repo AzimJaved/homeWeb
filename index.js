@@ -3,6 +3,7 @@ const http = require('http')
 const WebSocket = require('ws')
 const bodyParser = require('body-parser')
 const crypto = require('crypto-js')
+const cors = require('cors')
 
 const connection = require('./lib/database/mongo')
 const { Appliance } = require('./lib/database/models/appliances')
@@ -14,10 +15,54 @@ const app = express();
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json())
+app.use(cors())
+app.options('*', cors())
 
 const server = http.createServer(app);
 
 const wss = new WebSocket.Server({ server });
+
+// let newA1 = new Appliance({
+//     id:"tl-01",
+//     name: "Room Tubelight",
+//     image: "/",
+//     pin: 8,
+//     lastStatus: "ON",
+//     lastStatusTime: Date(),
+//     type: "light"
+// })
+// let newA2 = new Appliance({
+//     id:"bl-01",
+//     name: "Balcony Light",
+//     image: "/",
+//     pin: 9,
+//     lastStatus: "ON",
+//     lastStatusTime: Date(),
+//     type: "light"
+// })
+// let newA3 = new Appliance({
+//     id:"fn-01",
+//     name: "Room Fan",
+//     image: "/",
+//     pin: 10,
+//     lastStatus: "ON",
+//     lastStatusTime: Date(),
+//     type: "light"
+// })
+// let newA4 = new Appliance({
+//     id:"bl-02",
+//     name: "Terrace Light",
+//     image: "/",
+//     pin: 11,
+//     lastStatus: "ON",
+//     lastStatusTime: Date(),
+//     type: "light"
+// })
+
+// newA1.save();
+// newA2.save();
+// newA3.save();
+// newA4.save();
 
 wss.on('connection', (ws) => {
 
@@ -29,66 +74,87 @@ wss.on('connection', (ws) => {
 });
 
 
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/pages/index.html')
-})
-
 app.post('/login', (req, res) => {
     let time = Date()
     firebaseAuth.signInWithEmailAndPassword(req.body.email, req.body.password)
         .then(() => {
-            let token = crypto.MD5('/AzIm/' + req.body.email + '*' + req.body.password + '*' + time.toString() + '/AyEsha/')
+            let token = crypto.MD5('/AzIm/' + req.body.email + '*' + req.body.password + '*' + time.toString() + '/AyEsha/').toString()
             let authToken = new Auth({ token: token, date: time, valid: true })
             authToken.save()
                 .then(savedToken => {
                     console.log("New login detected")
-                    res.json({ authenticated: true, token: token, valid })
+                    Auth.find({}, (err, result) => {
+                        if (err) {
+                            console.log(err)
+                            res.json({ authenticated: false, token: null })
+                            return
+                        }
+                    })
+                    res.json({ authenticated: true, token: token })
+                    return
                 })
                 .catch((err) => {
+                    console.log(err)
                     console.log("Database save failed")
                     res.json({ authenticated: false, token: null })
+                    return
                 })
         })
         .catch(() => {
             console.log("Sign in failed")
             res.json({ authenticated: false, token: null })
+            return
         })
 })
 
-app.post('/appliance', (req, res) => {
+app.get('/appliance', (req, res) => {
     Appliance.find({}, (err, result) => {
         if (err) {
             res.json({ type: "error", data: [] })
+            return
         } else {
             res.json({ type: "success", data: result })
+            return
         }
     })
 })
 
 app.post('/applianceToggle', (req, res) => {
-    Auth.find({ token: req.body.token }, (err, res) => {
+    Auth.find({ token: req.body.token }, (err, result) => {
         if (err) {
             res.json({ status: "Auth Failed" })
-        } else if (res.length > 0) {
-            if (res[0].valid) {
-                if (wss.clients.length > 0) {
-                    wss.clients.forEach(client => {
-                        client.send(`{
-                            "type":"${req.body.payload.action}", 
-                            "id":"${req.body.payload.appliance.id}",
-                            "pin": "${req.body.appliance.pin}"
-                        }`)
-                    })
-                    res.json({ status: "SUCCESS" })
-                } else {
-                    res.json({ status: "No client found" })
-                }
+            return
+        } else if (result.length > 0) {
+            if (result[0].valid) {
+                Appliance.findOne({ "id": req.body.payload.appliance.id }, (err, result) => {
+                    if (err) {
+                        res.json(({ status: "Unknown Error:1" }))
+                        return
+                    } else {
+                        result.lastStatus = req.body.payload.action
+                        result.lastStatusTime = Date()
+                        result.save().then((err) => {
+                            if (err) {
+                                wss.clients.forEach(client => {
+                                    client.send(`{"type":"${req.body.payload.action}", "id":"${req.body.payload.appliance.id}","pin": "${req.body.payload.appliance.pin}"}`)
+                                })
+                                res.json({ status: "SUCCESS" })
+                                return
+                            } else {
+                                res.json(({ status: "Unknown Error:2" }))
+                                return
+                            }
+                        })
+                    }
+                })
 
             } else {
                 res.json({ status: "Auth Failed" })
+                return
             }
         } else {
             res.json({ status: "Auth Failed" })
+            return
         }
     })
 })
