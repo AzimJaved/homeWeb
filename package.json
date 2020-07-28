@@ -10,7 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "crypto-js": "^4.0.0",
     "express": "^4.17.1",
+    "firebase": "^7.17.1",
+    "mongoose": "^5.9.26",
     "ws": "^7.3.1"
   }
 }

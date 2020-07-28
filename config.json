@@ -1,0 +1,12 @@
+{
+    "databaseEndpoint": "mongodb://127.0.0.1",
+    "firebaseConfig": {
+        "apiKey": "AIzaSyARav7xMTTT1iznkC-0_gBu7YVbYBczJ9k",
+        "authDomain": "homeweb-torusmug.firebaseapp.com",
+        "databaseURL": "https://homeweb-torusmug.firebaseio.com",
+        "projectId": "homeweb-torusmug",
+        "storageBucket": "homeweb-torusmug.appspot.com",
+        "messagingSenderId": "810549788359",
+        "appId": "1:810549788359:web:99910c400832ff73f9c8e2"
+    }
+}
