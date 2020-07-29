@@ -67,8 +67,7 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws) => {
 
     ws.on('message', (message) => {
-
-        ws.send(`{"type":"OTHER", "data": "Hello, you sent -> ${message}"}`);
+        // console.log(message)
     });
     ws.send('{"type":"OTHER", "data":"Hi there, I am a WebSocket server"}');
 });
@@ -106,7 +105,62 @@ app.post('/login', (req, res) => {
             return
         })
 })
+app.post('/pingAppliances', (req, res) => {
+    Auth.find({ token: req.body.token }, (err, result) => {
+        if (err) {
+            console.log("Err1")
+            console.log(err)
+            res.json({ type: "Auth failed" })
+            return
+        } else if (result.length === 0) {
+            console.log("Err2")
+            res.json({ type: "Auth failed" })
+            return
+        } else {
+            Appliance.find({}, (error, objects) => {
+                if (error) {
+                    console.log("Err3")
+                    console.log(error)
+                    res.json({ type: "error" })
+                    return
+                } else {
+                    let pinsAndIds = []
+                    objects.forEach(appliance => {
+                        pinsAndIds.push(`"${appliance.id}"`)
+                        pinsAndIds.push(`"${appliance.pin}"`)
+                    })
+                    wss.clients.forEach(client => {
+                        client.send((`{"type":"ping","pins":[${pinsAndIds}]}`))
+                        client.on('message', message => {
+                            message = JSON.parse(message)
+                            if (message.type === 'pingResult') {
+                                let status = message.data;
+                                status.forEach(appliance => {
+                                    Appliance.findOne({ id: appliance.id }, (errors, object) => {
+                                        if (errors) {
+                                            console.log("Err4")
+                                            console.log(errors)
+                                            res.json({ type: "error" })
+                                            return
+                                        } else {
+                                            object.lastStatus = appliance.status
+                                            object.lastStatusTime = Date()
+                                            object.save()
+                                        }
+                                    })
+                                })
 
+                            }
+                        })
+                    })
+                }
+            })
+        }
+    }).then(() => {
+        res.json({ type: "success" })
+        return
+    })
+})
 app.get('/appliance', (req, res) => {
     Appliance.find({}, (err, result) => {
         if (err) {
@@ -133,10 +187,10 @@ app.post('/applianceToggle', (req, res) => {
                     } else {
                         result.lastStatus = req.body.payload.action
                         result.lastStatusTime = Date()
-                        result.save().then((err) => {
-                            if (err) {
+                        result.save().then((object) => {
+                            if (object) {
                                 wss.clients.forEach(client => {
-                                    client.send(`{"type":"${req.body.payload.action}", "id":"${req.body.payload.appliance.id}","pin": "${req.body.payload.appliance.pin}"}`)
+                                    client.send(`{"type":"toggle", "action":"${req.body.payload.action}", "id":"${req.body.payload.appliance.id}", "pin": "${req.body.payload.appliance.pin}"}`)
                                 })
                                 res.json({ status: "SUCCESS" })
                                 return
