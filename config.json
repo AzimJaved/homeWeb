@@ -1,5 +1,5 @@
 {
-    "databaseEndpoint": "mongodb://127.0.0.1/playground",
+    "databaseEndpoint": "mongodb+srv://torusmug:8S3&10e1&8X9@homeweb.leymi.mongodb.net/home?retryWrites=true&w=majority",
     "firebaseConfig": {
         "apiKey": "AIzaSyARav7xMTTT1iznkC-0_gBu7YVbYBczJ9k",
         "authDomain": "homeweb-torusmug.firebaseapp.com",
